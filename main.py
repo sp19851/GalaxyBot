@@ -9,6 +9,19 @@ import random
 
 import asyncio
 import traceback
+import json
+
+#with open('badwords.txt') as file:
+#    mat_file = file.read().split(', ')
+
+def load_counters():
+    with open('counters.json', 'r') as f:
+       counters = json.load(f)
+    return counters
+
+def save_counters(counters):
+    with open('counters.json', 'w') as f:
+       json.dump(counters, f)
 
 intents = discord.Intents.all()
 #client = discord.Bot(intents = intents)
@@ -78,7 +91,7 @@ async def on_member_remove(member):
 
 
 # Получение роли после нажатия эмоции пользователем под прочтением правил
-channels = [857320946330763275, 903992273593843732, 903992194090807376] #0-канал  с правилами (первая роль(по умолчанию), присваивается когда просто залетаешь, вторая по реакции об ознакомлении с правилами, третья при нажатии админами для вайтлиста)  1-канал откуда создаются  тикеты  2-канал с правилами
+channels = [909377057232945172, 903992273593843732, 903992194090807376] #0-канал  с правилами (первая роль(по умолчанию), присваивается когда просто залетаешь, вторая по реакции об ознакомлении с правилами, третья при нажатии админами для вайтлиста)  1-канал откуда создаются  тикеты  2-канал с правилами
 categID = 904275651123626015 #категория каналов с тикетами
 SUPPORT_ROLE_ID = 904320771759943781 #роль поддержки, для тикетов
 
@@ -99,12 +112,16 @@ async def on_raw_reaction_add(payload):
     if not mess.id in channels and chan.id not in channels:
         return
     elif mess.id == channels[0]:
-
-        role = user1.guild.get_role(854001171542310942) #вторая роль
+        
+        role = user1.guild.get_role(909374287352315924) #вторая роль Участник
+        role2 = user1.guild.get_role(904296140332224552) #первая роль Гость
+        print(user1, 'поставил реакцию')
         await user1.add_roles(role)
+        await user1.remove_roles(role2)
     elif chan.id == channels[2] and is_admin:
         role = discord.utils.get(user2.guild.roles, name='Whitelist')
         await user2.add_roles(role)
+        
         
     elif chan.id == channels[1]:  # реакция в канале поддержка
         
@@ -122,13 +139,13 @@ async def on_raw_reaction_add(payload):
         }
         channel = await category.create_text_channel(name=f'ticket - {user1}',
                                            overwrites=overwrites)
-        await channel.send(f"{user1.mention}")
+        await channel.send(f"{user1.mention},{support_role.mention}")
        
         # Создём emb
         #emb = discord.Embed( title = f'Тикет #{ticket_id}', description = '', colour = discord.Color.red() )
         emb = discord.Embed( title = f'Тикет', description = '', colour = discord.Color.red() )
         emb.set_author(name = user1, icon_url = user1.avatar_url)
-        #emb.add_field( name = 'Команды', value = f'`{prefix}voice`', inline=False)
+        emb.add_field(name="Описывайте свою проблему в этом канале",value= "Не злоупотребляйте!!!", inline=False)
         emb.add_field( name = 'Команды', value = f'`!closeT`  `!deleteT`', inline=False)
         emb.set_thumbnail(url = "https://icons.iconarchive.com/icons/sonya/swarm/128/Ticket-icon.png")
         await channel.send(embed=emb)
@@ -136,13 +153,13 @@ async def on_raw_reaction_add(payload):
     else:
         return
 
-    channel = bot.get_channel(904289734497558569) # служебный канал
-    if is_admin:
-        await channel.send(
-            "Пользователь {} c правами admin нажал реакцию".format(adm))
-    else:
-        await channel.send(
-            "Пользователь {} c правами not admin нажал реакцию {}".format(adm))
+    #channel = bot.get_channel(904289734497558569) # служебный канал
+    #if is_admin:
+    #    await channel.send(
+    #        "Пользователь {} c правами admin нажал реакцию".format(adm))
+    #else:
+    #    await channel.send(
+    #        "Пользователь {} c правами not admin нажал реакцию {}".format(adm))
 
 #закрываем тикет
 @bot.command()
@@ -150,7 +167,6 @@ async def closeT(ctx):
     channel_name = (ctx.message.channel.name)
     guild_id = str(ctx.message.guild.id)
     print('close', channel_name, guild_id)
-    
     channel = ctx.message.channel
 
 
@@ -176,10 +192,92 @@ async def closeT(ctx):
           await asyncio.sleep(1)
           await channel.send(f"Тикет закрыт")
           return
+
+          
+
+
+
+#переделывает сообщения пользователей в сообщения бота    
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+    ch = message.channel
+    print('{} что то написал в канал {} {}'.format(message.author, message.channel.id, message.channel))
+    if (message.channel.id in [903992711793766430, 903995354792489002]):  #блог разраба и ic-info
+      await ch.send(f'{message.content}')
+      await message.delete()
+      channel = bot.get_channel(904289734497558569) # служебный канал
+      is_admin = message.author.guild_permissions.administrator
+      print('is_admin', is_admin)
+      if is_admin:
+        await channel.send(
+            "```Пользователь {} c правами admin выложил бот-пост {} в канал {}```".format(
+                message.author.name, message.content,ch))
+      else:
+        await channel.send(
+            "```Пользователь {} c правами not admin выложил бот-пост {} в канал {}```".format(
+                message.author.name, message.content,ch))
+    if (message.channel.id in [903992374580113459]):  #ваши идеи
+      # Создём emb
+      counters = load_counters()
+      count = counters["offers"]+1 
+      counters["offers"] += 1
+      save_counters(counters) 
       
-    
-    
-   
+      emb = discord.Embed(title = 'Предложение №{}'.format(count), description = '', colour = discord.Color.green() )
+      emb.set_author(name = message.author, icon_url = message.author.avatar_url)
+      emb.add_field( name = 'Суть:', value = message.content, inline=False)
+      #emb.set_image(url = "https://imgur.com/a/DJyCQ0P")
+     
+      botmes = await ch.send(embed=emb)
+      await botmes.add_reaction('✅')
+      await botmes.add_reaction('❌')
+     
+       #await ch.send(f'{message.content}')
+      await message.delete()
+      channel = bot.get_channel(904289734497558569) # служебный канал
+      is_admin = message.author.guild_permissions.administrator
+      print('is_admin', is_admin)
+      if is_admin:
+        await channel.send(
+            "```Пользователь {} c правами admin выложил бот-пост {} в канал {}```".format(
+                message.author.name, message.content,ch))
+      else:
+        await channel.send(
+            "```Пользователь {} c правами not admin выложил бот-пост {} в канал {}```".format(
+                message.author.name, message.content,ch))
+ 
+    await bot.process_commands(message)
+
+
+# Отлавливаем событие удаления сообщения
+
+@bot.event
+async def on_message_delete(message):
+    if message.author == bot.user:
+        return
+    embed = discord.Embed(title="Сообщение удалено!")
+    embed.add_field(name="Текст", value=message.content)
+    embed.add_field(name="Удалил", value="{}".format(message.author.name))
+    embed.colour = (0x90EE90)
+    #print('Delete by',message.member )
+    dele = bot.get_channel(904289734497558569)
+    await dele.send(embed=embed)
+
+# Отлавливаем событие редактирование сообщения
+@bot.event
+async def on_message_edit(message_before, message_after):
+    if message_after.author == bot.user:
+        return
+    embed = discord.Embed(title="{} отредактировал сообщение".format(message_before.author.name),
+                          description="", color=0xFF0000)
+    embed.add_field(name=message_before.content, value="Первичный вариант",
+                    inline=True)
+    embed.add_field(name=message_after.content, value="Отредактированный вариант",
+                    inline=True)
+    channel = bot.get_channel(904289734497558569)
+    await channel.send(channel, embed=embed)
 
 #удаляем тикет
 SUPPORTROLE = "Galaxy"
@@ -199,8 +297,6 @@ async def deleteT(ctx): #, member: discord.Member = None):
     await channel.delete()
     
 
-    
-  
 
 
 
@@ -255,6 +351,7 @@ async def clearmes(ctx, number):
     adm = ctx.message.author
     perms = adm.guild_permissions
     is_admin = perms.administrator
+    print('delete') 
     #if is_admin:
     number = int(number)  #Converting the amount of messages to delete to an integer
     ch = ctx.message.channel
